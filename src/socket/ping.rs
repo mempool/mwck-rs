@@ -24,27 +24,27 @@ impl Manager {
         }
     }
 
-    pub async fn start(&mut self) {
-    log::trace!("starting ping loop");
+    pub async fn start(&mut self, id: u32) {
+    log::trace!("starting ping loop {}", id);
         {
             *self.last_response.write().await = compat::now();
         }
         let mut disconnect_receiver = self.disconnect_channel.subscribe();
         let mut waiting_for_pong = false;
         loop {
-            log::trace!("...checking ping...");
+            log::trace!("...checking ping... {}", id);
             if disconnect_receiver.try_recv() == Ok(true) {
-                log::trace!("disconnect signal received! breaking ping loop");
+                log::trace!("disconnect signal received! breaking ping loop {}", id);
                 break;
             }
             if let Ok(last_response_time) = self.last_response.try_read() {
                 let now = compat::now();
                 if now.saturating_sub(*last_response_time) > Duration::from_secs(60) {
-                    log::warn!("websocket is unresponsive, closing the connection and trying again in 60s");
+                    log::trace!("DISCONNECT ping websocket is unresponsive, closing the connection and trying again in 60s {}", id);
                     let _ = self.disconnect_channel.send(true);
                     break;
                 } else if !waiting_for_pong && now.saturating_sub(*last_response_time) > Duration::from_secs(30) {
-                    log::trace!("no response from websocket for 30 seconds - request a ping");
+                    log::trace!("no response from websocket for 30 seconds - request a ping {}", id);
                     let _ = self.control_sender.send(Event::Ping);
                     waiting_for_pong = true;
                 } else if waiting_for_pong && now.saturating_sub(*last_response_time) <= Duration::from_secs(30) {
@@ -54,6 +54,6 @@ impl Manager {
             }
             compat::sleep(1_000).await;
         }
-        log::trace!("ending ping loop");
+        log::trace!("ending ping loop {}", id);
     }
 }

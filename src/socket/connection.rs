@@ -88,13 +88,15 @@ impl Manager {
 
     /// Executes a state machine to manage the websocket connection
     pub async fn start(&mut self) {
+        log::trace!("connection start");
         let mut status = StatusUpdater {
             status: Status::Ready,
             sender: self.status_sender.clone(),
         };
         let mut close_receiver: Option<oneshot::Receiver<bool>> = None;
-        let (disconnect_sender, mut disconnect_receiver) = broadcast::channel(1);
+        let mut disconnect_channel: Option<broadcast::Sender<bool>> = None;
         let mut handles: Option<Vec<Option<JoinHandle<()>>>> = None;
+        let mut connection_count: u32 = 0;
         loop {
             log::trace!("connect loop {:?}", status.get());
             match status.get() {
@@ -117,16 +119,19 @@ impl Manager {
                 // Connecting => Connected | Disconnected
                 Status::Connecting => {
                     log::trace!("trying to connect");
-                    // need a fresh oneshot channel for signalling socket closure
-                    if let Some((h, c)) = self.connect(disconnect_sender.clone(), self.event_sender.clone()).await {
+                    // need fresh channels for signalling socket closure/disconnection
+                    if let Some((h, c, d)) = self.connect(self.event_sender.clone(), connection_count).await {
                         handles = Some(h);
                         close_receiver = Some(c);
+                        disconnect_channel = Some(d);
                         status.update(Status::Connected);
                     } else {
                         handles = None;
                         close_receiver = None;
+                        disconnect_channel = None;
                         status.update(Status::Disconnected);
                     }
+                    connection_count += 1;
                 },
                 // Disconnected => Ready (delayed to rate-limit reconnections)
                 Status::Disconnected => {
@@ -145,6 +150,8 @@ impl Manager {
                 // Connected => steady state until CLOSE or ERROR
                 Status::Connected => {
                     let mut close_signal = close_receiver.take().expect("can never reach a Connected state without (re)initializing the close channel");
+                    let disconnect_sender = disconnect_channel.take().expect("can never reach a Connected state without (re)initializing the disconnect channel");
+                    let mut disconnect_receiver = disconnect_sender.subscribe();
                     tokio::select! {
                         // Connected => Disconnected
                         _ = disconnect_receiver.recv() => {
@@ -166,30 +173,31 @@ impl Manager {
                                 }
                             }
                             // tell threads to exit
-                            let _ = disconnect_sender.clone().send(true);
+                            let _ = disconnect_sender.send(true);
                         }
                     }
                 }
             }
         }
         self.notify(WebsocketEvent::Offline);
-        log::trace!("ended ws connection loop");
+        log::trace!("connection ended");
     }
 
     pub async fn stop(&self) {
-        log::trace!("stopping websocket");
+        log::trace!("stopping connection");
         let _ = self.control_sender.send(Event::Close);
         // wait for websocket to finish closing
         let mut rx = self.status_sender.subscribe();
         while let Ok(status) = rx.recv().await {
             if status == Status::Offline {
-                log::trace!("Websocket closed!");
+                log::trace!("connection closed!");
                 break;
             }
         }
+        log::trace!("returning from connection::stop");
     }
 
-    async fn connect(&mut self, disconnect_channel: broadcast::Sender<bool>, event_sender: broadcast::Sender<WebsocketEvent>) -> Option<(Vec<Option<JoinHandle<()>>>, oneshot::Receiver<bool>)> {
+    async fn connect(&mut self, event_sender: broadcast::Sender<WebsocketEvent>, id: u32) -> Option<(Vec<Option<JoinHandle<()>>>, oneshot::Receiver<bool>, broadcast::Sender<bool>)> {
         log::trace!("Connecting to {}", self.ws_url);
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -198,6 +206,7 @@ impl Manager {
         let connection = connect(&self.ws_url).await;
 
         let (close_sender, close_receiver) = oneshot::channel();
+        let (disconnect_sender, _) = broadcast::channel(1);
         let last_response = Arc::new(RwLock::new(compat::now()));
 
         // Connect
@@ -205,7 +214,7 @@ impl Manager {
             Ok((ws_tx, ws_rx)) => {
                 log::trace!("Connected to {}", self.ws_url);
 
-                let control_disconnect = disconnect_channel.clone();
+                let control_disconnect = disconnect_sender.clone();
                 let control_receiver = self.control_sender.subscribe();
                 let control_handle = compat::spawn(async move {
                     let mut manager = control::Manager::new(
@@ -214,9 +223,10 @@ impl Manager {
                         control_disconnect,
                         Some(close_sender)
                     );
-                    manager.start().await;
+                    manager.start(id).await;
+                    log::trace!("closed control manager");
                 });
-                let message_disconnect = disconnect_channel.clone();
+                let message_disconnect = disconnect_sender.clone();
                 let message_timer = last_response.clone();
                 let message_handle = compat::spawn(async move {
                     let mut manager = message::Manager::new(
@@ -225,22 +235,25 @@ impl Manager {
                         message_disconnect,
                         message_timer,
                     );
-                    manager.start().await;
+                    manager.start(id).await;
+                    log::trace!("closed message manager");
                 });
                 let ping_controller = self.control_sender.clone();
-                let ping_disconnect = disconnect_channel.clone();
+                let ping_disconnect = disconnect_sender.clone();
                 let ping_handle = compat::spawn(async move {
                     let mut manager = ping::Manager::new(
                         ping_controller,
                         ping_disconnect,
                         last_response,
                     );
-                    manager.start().await;
+                    manager.start(id).await;
+                    log::trace!("closed ping manager");
                 });
                 self.notify(WebsocketEvent::Connected);
                 Some((
                     vec![control_handle, message_handle, ping_handle],
                     close_receiver,
+                    disconnect_sender,
                 ))
             }
             Err(err) => {

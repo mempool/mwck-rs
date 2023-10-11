@@ -48,34 +48,35 @@ impl Manager {
     /// Handles control signals from an mpsc channel
     pub async fn start(
         &mut self,
+        id: u32,
     ) {
-        log::trace!("starting control loop");
+        log::trace!("starting control loop {}", id);
         let mut active_spks = HashSet::new();
         let mut disconnect_receiver = self.disconnect_channel.subscribe();
 
         loop {
-            log::trace!("...control loop...");
+            log::trace!("...control loop... {}", id);
             tokio::select! {
                 _ = disconnect_receiver.recv() => {
-                    log::trace!("disconnect signal received! breaking control loop");
+                    log::trace!("disconnect signal received! breaking control loop {}", id);
                     break;
                 }
 
                 Ok(event) = self.control_receiver.recv() => {
-                    log::trace!("control event received {:?}", event);
+                    log::trace!("control event received {:?} {}", event, id);
                     match event {
                         Event::Close => {
-                            log::trace!("received Close event in control loop");
+                            log::trace!("CLOSE control received close request {}", id);
                             let _ = self.ws_tx.close().await;
                             let _ = self.close_channel.take().map_or(Ok(()), |close_sender| close_sender.send(true));
                         },
                         Event::Ping => {
-                            log::trace!("websocket ping requested");
+                            log::trace!("websocket ping requested {}", id);
                             let message = "{\"action\": \"ping\"}".to_string();
                             let _ = self.ws_tx.send(Message::Text(message)).await;
                         }
                         Event::Subscribe(scriptpubkeys) => {
-                            log::trace!("control subscribing to new addresses {:?}", scriptpubkeys);
+                            log::trace!("control subscribing to new addresses {:?} {}", scriptpubkeys, id);
                             let mut changed = false;
                             for scriptpubkey in scriptpubkeys {
                                 changed |= active_spks.insert(scriptpubkey);
@@ -84,13 +85,13 @@ impl Manager {
                             if changed && self.update_scriptpubkeys_subscription(
                                 active_spks.iter().collect()
                             ).await.is_err() {
-                                log::warn!("Failed to update websocket subscription");
+                                log::trace!("DISCONNECT control failed to update websocket subscription (sub) {}", id);
                                 let _ = self.disconnect_channel.send(true);
                                 break;
                             }
                         }
                         Event::Unsubscribe(scriptpubkeys) => {
-                            log::trace!("control unsubscribing from addresses {:?}", scriptpubkeys);
+                            log::trace!("control unsubscribing from addresses {:?} {}", scriptpubkeys, id);
                             let mut changed = false;
                             for scriptpubkey in scriptpubkeys {
                                 changed |= active_spks.remove(&scriptpubkey);
@@ -99,7 +100,8 @@ impl Manager {
                             if changed && self.update_scriptpubkeys_subscription(
                                 active_spks.iter().collect()
                             ).await.is_err() {
-                                log::warn!("Failed to update websocket subscription");
+                                log::trace!("DISCONNECT control failed to update websocket subscription (unsub) {}", id);
+                                let _ = self.disconnect_channel.send(true);
                                 break;
                             }
                         }
@@ -107,7 +109,7 @@ impl Manager {
                 }
             }
         }
-        log::trace!("ending control loop");
+        log::trace!("ending control loop {}", id);
     }
 
     async fn update_scriptpubkeys_subscription(

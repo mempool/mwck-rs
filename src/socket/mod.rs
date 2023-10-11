@@ -51,16 +51,20 @@ impl Client {
                 }
                 log::trace!("socket manager state changed to {:?}", event);
             }
+            log::trace!("returning from socket::start");
         }
     }
 
     /// Disconnect the websocket and stop trying to reconnect
     /// resolves once all websocket handling threads have been cleaned up
     pub async fn stop(&self, wait_for_close: bool) {
+        log::trace!("starting websocket");
         let fut = self.manager.stop();
         if wait_for_close {
+            log::trace!("waiting for websocket to close");
             fut.await;
         }
+        log::trace!("returning from socket::stop");
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<WebsocketEvent> {

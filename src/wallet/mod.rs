@@ -20,6 +20,7 @@ pub struct Options {
 #[derive(Debug, Clone)]
 pub enum Event {
     Initializing,
+    Disconnected,
     AddressReady(Script),
     AddressEvent(address::Event),
 }
@@ -29,6 +30,9 @@ impl std::fmt::Display for Event {
         match self {
             Self::Initializing => {
                 write!(f, "Initializing wallet")
+            }
+            Self::Disconnected => {
+                write!(f, "Lost connection")
             }
             Self::AddressReady(scriptpubkey) => {
                 write!(f, "Address ready {scriptpubkey}")
@@ -84,28 +88,32 @@ impl Wallet {
                 log::trace!("...wallet event receive loop...");
                 match ws_rx.recv().await {
                     Ok(WebsocketEvent::Offline) => {
-                        log::trace!("websocket offline!");
+                        log::trace!("wallet websocket offline!");
                         break;
                     }
                     Ok(WebsocketEvent::Disconnected) => {
-                        log::trace!("websocket disconnected!");
+                        log::trace!("wallet websocket disconnected!");
+                        let _ = wallet.event_sender.send(Event::Disconnected);
                     }
                     Ok(WebsocketEvent::Connected) => {
-                        log::trace!("websocket (re)connected!");
+                        log::trace!("wallet websocket (re)connected!");
                         wallet.init_addresses().await;
+                        log::trace!("wallet initialized addresses");
                     }
                     Ok(WebsocketEvent::Error) => {
-                        log::warn!("websocket threw an error");
+                        log::trace!("wallet websocket threw an error");
                     }
                     Ok(WebsocketEvent::AddressEvent(address_event)) => {
                         log::trace!("handling wallet ws event");
                         wallet.handle_address_event(address_event, true).await;
+                        log::trace!("handled wallet ws event");
                     }
                     Err(e) => {
                         log::warn!("unexpected websocket error {:?}", e);
                     }
                 }
             }
+            log::trace!("wallet event loop ended");
         });
         log::trace!("wallet waiting for connection");
         self.ws.start(wait_for_connection).await;

@@ -58,14 +58,14 @@ impl Manager {
         }
     }
 
-    pub async fn start(&mut self) {
-        log::trace!("starting event loop");
+    pub async fn start(&mut self, id: u32) {
+        log::trace!("starting event loop {}", id);
         let mut disconnect_receiver = self.disconnect_channel.subscribe();
         loop {
-            log::trace!("...event loop...");
+            log::trace!("...event loop... {}", id);
             tokio::select! {
                 _ = disconnect_receiver.recv() => {
-                    log::trace!("disconnect signal received! breaking event loop");
+                    log::trace!("disconnect signal received! breaking event loop {}", id);
                     break;
                 }
 
@@ -78,23 +78,23 @@ impl Manager {
                     }
                     match msg {
                         Ok(Message::Text(text)) => {
-                            log::trace!("handling websocket event");
+                            log::trace!("handling websocket event {}", id);
                             self.handle_event(text.as_str());
                         }
 
                         Err(e) => {
-                            log::trace!("error in websocket event loop {:?}", e);
+                            log::trace!("DISCONNECT message error in websocket event loop {:?} {}", e, id);
                             let _ = self.disconnect_channel.send(true);
                         }
 
                         x => {
-                            log::trace!("unexpected ws message received {:?}", x);
+                            log::trace!("unexpected ws message received {:?} {}", x, id);
                         }
                     }
                 }
             }
         }
-        log::trace!("ending event loop");
+        log::trace!("ending event loop {}", id);
     }
 
     fn handle_event(&self, json_message: &str) {
