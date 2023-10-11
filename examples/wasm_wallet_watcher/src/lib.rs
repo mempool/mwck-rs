@@ -1,9 +1,9 @@
-use std::{str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc, collections::HashSet};
 
 use log::Level;
 use tokio::sync::Mutex;
 use wasm_bindgen::prelude::*;
-use bitcoin::{Address, Network};
+use bitcoin::{Address, Network, Script};
 use mwck::wallet::{address, Wallet, Options, Event};
 use wasm_bindgen_futures::future_to_promise;
 
@@ -62,24 +62,40 @@ impl JsWallet {
         };
         let network = self.network;
         wasm_bindgen_futures::spawn_local(async move {
+            let mut ready_addresses: HashSet<Script> = HashSet::new();
             loop {
-                let latest = event_receiver.recv().await;
-                if let Ok(event) = latest.clone() {
-                    log::warn!("Wallet event! {}", event);
-                }
-                match latest {
-                    Ok(Event::AddressEvent(address::Event::Confirmed(scriptpubkey, _))) |
-                    Ok(Event::AddressEvent(address::Event::Removed(scriptpubkey, _))) |
-                    Ok(Event::AddressEvent(address::Event::Mempool(scriptpubkey, _))) |
+                match event_receiver.recv().await {
+                    Ok(Event::Initializing) => {
+                        //
+                    }
+                    Ok(Event::Disconnected) => {
+                        log::debug!("wallet disconnected");
+                        ready_addresses.clear();
+                    }
                     Ok(Event::AddressReady(scriptpubkey)) => {
+                        log::debug!("loaded address {}", scriptpubkey);
+                        ready_addresses.insert(scriptpubkey.clone());
                         let address = Address::from_script(&scriptpubkey, network).unwrap().to_string();
                         if let Some(state) = wallet.lock().await.get_address_state(&scriptpubkey).await {
                             let balance = serde_wasm_bindgen::to_value(&state.balance).unwrap();
                             onAddressEvent(address, state.transactions.len(), balance);
                         }
                     }
-                    Ok(other) => {
-                        log::warn!("other wallet event: {:?}", other);
+                    Ok(Event::AddressEvent(address_event)) => {
+                        match &address_event {
+                            address::Event::Mempool(scriptpubkey, _) |
+                            address::Event::Confirmed(scriptpubkey, _) |
+                            address::Event::Removed(scriptpubkey, _) => {
+                                if ready_addresses.contains(scriptpubkey) {
+                                    log::debug!("wallet event: {}", &address_event);
+                                    let address = Address::from_script(scriptpubkey, network).unwrap().to_string();
+                                    if let Some(state) = wallet.lock().await.get_address_state(scriptpubkey).await {
+                                        let balance = serde_wasm_bindgen::to_value(&state.balance).unwrap();
+                                        onAddressEvent(address, state.transactions.len(), balance);
+                                    }
+                                }
+                            }
+                        }
                     }
                     Err(e) => {
                         log::warn!("wallet error! {:?}", e);
