@@ -56,6 +56,14 @@ loop {
 
 Also check out the `wasm_wallet_watcher` example crate.
 
+# BDK
+
+The library exposes a `MempoolAsync` struct, which wraps and extends the `AsyncClient` from the `esplora-client` crate, and is suitable for integration with BDK.
+
+
+
+Check out the `bdk_mempool` and `bdk_mempool_wallet` example crates, which are analogous to https://github.com/bitcoindevkit/bdk/tree/master/crates/esplora and https://github.com/bitcoindevkit/bdk/tree/master/example-crates/wallet_esplora_async respectively.
+
 ## API
 
 _(TODO)_

@@ -1,0 +1,13 @@
+[package]
+name = "wallet_mempool_async"
+version = "0.2.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bdk = { path = "../../../bdk/crates/bdk", version = "1.0.0-alpha.1" }
+bdk_mempool = { path = "../bdk_mempool" }
+bdk_file_store = { path = "../../../bdk/crates/file_store" }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }
+env_logger = "0.10.0"

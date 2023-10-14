@@ -1,0 +1,22 @@
+[package]
+name = "bdk_mempool"
+version = "0.3.0"
+edition = "2021"
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bdk_chain = { path = "../../../bdk/crates/chain", version = "0.5.0", default-features = false, features = ["serde", "miniscript"] }
+mwck = { version = "0.1.0", path = "../../" }
+esplora-client = { version = "0.6.0", default-features = false, features = ["async-https"] }
+async-trait = { version = "0.1.66" }
+futures = { version = "0.3.26" }
+
+# use these dependencies if you need to enable their /no-std features
+bitcoin = { version = "0.30", optional = true, default-features = false }
+miniscript = { version = "10.0.0", optional = true, default-features = false }
+
+[features]
+default = ["std"]
+std = ["bdk_chain/std"]
