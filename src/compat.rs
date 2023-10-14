@@ -2,13 +2,12 @@ use std::time::Duration;
 use tokio::task::JoinHandle;
 use futures_util::Future;
 
-#[cfg(not(target_arch = "wasm32"))]
 pub fn spawn<F>(future: F) -> Option<JoinHandle<F::Output>>
 where
-    F: Future + 'static,
-    F::Output: 'static
+    F: Future + Send + 'static,
+    F::Output: Send + 'static,
 {
-  Some(tokio::task::spawn_local(future))
+    Some(tokio::task::spawn(future))
 }
 
 #[cfg(target_arch = "wasm32")]
