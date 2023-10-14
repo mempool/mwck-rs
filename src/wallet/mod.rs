@@ -159,6 +159,26 @@ impl Wallet {
         self.event_sender.subscribe()
     }
 
+    pub async fn get_and_watch(&self, scriptpubkey: &ScriptBuf) -> Result<State, Error> {
+        let tracker_arc_option = {
+            let addresses = self.addresses.lock().await;
+            addresses.get(scriptpubkey).cloned()
+        };
+        match tracker_arc_option {
+            Some(tracker_arc) => {
+                let tracker = tracker_arc.lock().await;
+                Ok(tracker.get_state())
+            }
+            None => {
+                self.watch(&[scriptpubkey.clone()]).await.and_then(|vec| {
+                    vec.first()
+                        .cloned()
+                        .ok_or(Error::Missing)
+                })
+            }
+        }
+    }
+
     pub async fn watch(&self, scriptpubkeys: &[ScriptBuf]) -> Result<Vec<State>, Error> {
         log::trace!("wallet watch {:?}", scriptpubkeys);
         self.ws.track_scriptpubkeys(scriptpubkeys);

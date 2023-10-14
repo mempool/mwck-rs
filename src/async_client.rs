@@ -26,6 +26,24 @@ impl MempoolAsync {
         Self::new(&options)
     }
 
+    pub async fn connect(&self, wait_for_connection: bool) {
+        self.wallet.connect(wait_for_connection).await
+    }
+
+    pub async fn mwck_scripthash_txs(
+        &self,
+        script: &ScriptBuf,
+    ) -> Result<Vec<Tx>, MwckError> {
+        self.wallet.get_and_watch(script).await.map(|state| state.transactions)
+    }
+
+    pub async fn mwck_confirmed_scripthash_txs(
+        &self,
+        script: &ScriptBuf,
+    ) -> Result<Vec<Tx>, MwckError> {
+        self.wallet.get_and_watch(script).await.map(|state| state.transactions.into_iter().filter(|tx| tx.status.confirmed).collect())
+    }
+
     delegate! {
         to self.wallet.api.client {
             /// Get a [`Transaction`] option given its [`Txid`]
