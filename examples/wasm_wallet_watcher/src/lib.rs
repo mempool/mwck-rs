@@ -3,7 +3,7 @@ use std::{str::FromStr, sync::Arc, collections::HashSet};
 use log::Level;
 use tokio::sync::Mutex;
 use wasm_bindgen::prelude::*;
-use bitcoin::{Address, Network, Script};
+use bitcoin::{Address, Network, ScriptBuf};
 use mwck::wallet::{address, Wallet, Options, Event};
 use wasm_bindgen_futures::future_to_promise;
 
@@ -62,7 +62,7 @@ impl JsWallet {
         };
         let network = self.network;
         wasm_bindgen_futures::spawn_local(async move {
-            let mut ready_addresses: HashSet<Script> = HashSet::new();
+            let mut ready_addresses: HashSet<ScriptBuf> = HashSet::new();
             loop {
                 match event_receiver.recv().await {
                     Ok(Event::Initializing) => {
@@ -112,7 +112,7 @@ impl JsWallet {
         let future = async move {
             match Address::from_str(&address) {
                 Ok(address) => {
-                    let scriptpubkey = address.script_pubkey();
+                    let scriptpubkey = address.assume_checked().script_pubkey();
                     Ok(JsValue::from_bool(wallet.lock().await.watch(&[scriptpubkey]).await.is_ok()))
                 },
                 Err(_) => Ok(JsValue::FALSE),

@@ -7,20 +7,20 @@ use std::collections::HashSet;
 use tokio::sync::{oneshot, broadcast};
 use futures_util::SinkExt;
 use serde::Serialize;
-use esplora_client::Script;
+use esplora_client::ScriptBuf;
 
 #[derive(Debug, Clone)]
 pub enum Event {
     Close,
     Ping,
-    Subscribe(Vec<Script>),
-    Unsubscribe(Vec<Script>),
+    Subscribe(Vec<ScriptBuf>),
+    Unsubscribe(Vec<ScriptBuf>),
 }
 
 #[derive(Serialize)]
 struct TrackSPKsMessage<'a> {
     #[serde(rename = "track-scriptpubkeys")]
-    track_scriptpubkeys: Vec<&'a Script>,
+    track_scriptpubkeys: Vec<&'a ScriptBuf>,
 }
 
 pub struct Manager {
@@ -114,7 +114,7 @@ impl Manager {
 
     async fn update_scriptpubkeys_subscription(
         &mut self,
-        scriptpubkeys: Vec<&Script>,
+        scriptpubkeys: Vec<&ScriptBuf>,
     ) -> Result<(), StreamError> {
         log::trace!("updating websocket subscription: {:?}", scriptpubkeys);
         let message = TrackSPKsMessage {

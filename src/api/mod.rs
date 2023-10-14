@@ -1,6 +1,6 @@
 use bitcoin::{
     hashes::{sha256, Hash},
-    Script, Txid,
+    ScriptBuf, Txid,
 };
 use esplora_client::{AsyncClient as EsploraClient, Builder, Error, Tx};
 
@@ -22,7 +22,7 @@ impl Client {
     /// taking advantage of new mempool/electrs features
     pub async fn scripthash_txs(
         &self,
-        script: &Script,
+        script: &ScriptBuf,
         last_seen: Option<Txid>,
         page_size: Option<usize>,
     ) -> Result<Vec<Tx>, Error> {
@@ -63,7 +63,7 @@ impl Client {
     ///  - a transaction confirmed at or below the given blockheight.
     pub async fn fetch_address_history(
         &self,
-        scriptpubkey: &Script,
+        scriptpubkey: &ScriptBuf,
         until_txid: Option<Txid>,
         until_height: Option<u32>,
     ) -> Result<Vec<Tx>, Error> {

@@ -4,7 +4,7 @@ use std::{
 };
 
 use bitcoin::Txid;
-use esplora_client::{Script, Tx};
+use esplora_client::{ScriptBuf, Tx};
 use serde::Serialize;
 use tokio::sync::broadcast;
 
@@ -12,9 +12,9 @@ use super::Event as WalletEvent;
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    Removed(Script, Tx),
-    Mempool(Script, Tx),
-    Confirmed(Script, Tx),
+    Removed(ScriptBuf, Tx),
+    Mempool(ScriptBuf, Tx),
+    Confirmed(ScriptBuf, Tx),
 }
 
 impl std::fmt::Display for Event {
@@ -84,14 +84,14 @@ impl Balances {
 
 #[derive(Debug, Clone)]
 pub struct State {
-    pub scriptpubkey: Script,
+    pub scriptpubkey: ScriptBuf,
     pub transactions: Vec<Tx>,
     pub balance: Balances,
 }
 
 #[derive(Debug, Clone)]
 pub struct Tracker {
-    scriptpubkey: Script,
+    scriptpubkey: ScriptBuf,
     transactions: HashMap<Txid, Tx>,
     balance: Balances,
     queue: VecDeque<Event>,
@@ -123,7 +123,7 @@ fn cmp_tx_time(a: &Tx, b: &Tx) -> Ordering {
 
 impl Tracker {
     #[must_use]
-    pub fn new(scriptpubkey: Script, event_sender: broadcast::Sender<WalletEvent>) -> Self {
+    pub fn new(scriptpubkey: ScriptBuf, event_sender: broadcast::Sender<WalletEvent>) -> Self {
         Self {
             scriptpubkey,
             transactions: HashMap::new(),

@@ -6,7 +6,7 @@ use super::native::connect;
 #[cfg(target_arch = "wasm32")]
 use super::wasm::connect;
 
-use bitcoin::Script;
+use bitcoin::ScriptBuf;
 use tokio::sync::{broadcast, oneshot, RwLock};
 use tokio::task::JoinHandle;
 
@@ -74,13 +74,13 @@ impl Manager {
         self.event_sender.subscribe()
     }
 
-    pub fn track_scriptpubkeys(&self, scriptpubkeys: Vec<Script>) {
+    pub fn track_scriptpubkeys(&self, scriptpubkeys: Vec<ScriptBuf>) {
         log::trace!("connection track_scriptpubkeys");
         let result = self.control_sender.send(Event::Subscribe(scriptpubkeys));
         log::trace!("sent Subscribe control event, result: {:?}", result);
     }
 
-    pub fn untrack_scriptpubkeys(&self, scriptpubkeys: Vec<Script>) {
+    pub fn untrack_scriptpubkeys(&self, scriptpubkeys: Vec<ScriptBuf>) {
         log::trace!("connection untrack_scriptpubkeys");
         let result = self.control_sender.send(Event::Unsubscribe(scriptpubkeys));
         log::trace!("sent Unsubscribe control event, result: {:?}", result);

@@ -2,9 +2,7 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 
-pub extern crate hex;
 mod api;
 mod socket;
-pub mod compat;
+mod compat;
 pub mod wallet;
-extern crate log;

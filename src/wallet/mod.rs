@@ -1,8 +1,8 @@
 use crate::api;
 use crate::socket::{self, WebsocketEvent};
 use crate::compat;
-use bitcoin::{Script, Network};
-use esplora_client::Error;
+use bitcoin::ScriptBuf;
+pub use esplora_client::Error;
 use tokio::sync::{broadcast, Mutex};
 
 use std::collections::{HashMap, HashSet};
@@ -21,7 +21,7 @@ pub struct Options {
 pub enum Event {
     Initializing,
     Disconnected,
-    AddressReady(Script),
+    AddressReady(ScriptBuf),
     AddressEvent(address::Event),
 }
 
@@ -46,7 +46,7 @@ impl std::fmt::Display for Event {
 pub struct Wallet {
     api: api::Client,
     ws: socket::Client,
-    addresses: Arc<Mutex<HashMap<Script, Arc<Mutex<Tracker>>>>>,
+    addresses: Arc<Mutex<HashMap<ScriptBuf, Arc<Mutex<Tracker>>>>>,
     event_sender: broadcast::Sender<Event>,
 }
 
@@ -131,7 +131,7 @@ impl Wallet {
         self.event_sender.subscribe()
     }
 
-    pub async fn watch(&self, scriptpubkeys: &[Script]) -> Result<Vec<State>, Error> {
+    pub async fn watch(&self, scriptpubkeys: &[ScriptBuf]) -> Result<Vec<State>, Error> {
         log::trace!("wallet watch {:?}", scriptpubkeys);
         self.ws.track_scriptpubkeys(scriptpubkeys);
 
@@ -163,7 +163,7 @@ impl Wallet {
         Ok(results)
     }
 
-    pub async fn unwatch(&self, scriptpubkeys: &[Script]) -> Result<(), Error> {
+    pub async fn unwatch(&self, scriptpubkeys: &[ScriptBuf]) -> Result<(), Error> {
         let mut addresses = self.addresses.lock().await;
 
         for spk in scriptpubkeys {
@@ -186,7 +186,7 @@ impl Wallet {
         results
     }
 
-    pub async fn get_address_state(&self, scriptpubkey: &Script) -> Option<State> {
+    pub async fn get_address_state(&self, scriptpubkey: &ScriptBuf) -> Option<State> {
         let addresses = self.addresses.lock().await;
         if let Some(tracker) = addresses.get(scriptpubkey) {
             Some(tracker.lock().await.get_state())
@@ -213,7 +213,7 @@ impl Wallet {
 
     async fn sync_address_history(
         &self,
-        scriptpubkey: &Script,
+        scriptpubkey: &ScriptBuf,
         tracker_arc: &Arc<Mutex<Tracker>>,
     ) -> Result<State, Error> {
         let mut tracker = tracker_arc.lock().await;
@@ -285,7 +285,7 @@ impl Wallet {
         let addresses = self.addresses.lock().await;
         log::trace!("(re)initialising {} addresses", addresses.len());
 
-        let spks: Vec<Script> = addresses.keys().cloned().collect();
+        let spks: Vec<ScriptBuf> = addresses.keys().cloned().collect();
         self.ws.track_scriptpubkeys(&spks);
 
         // TODO: parallelize this

@@ -15,7 +15,7 @@ use control::Event;
 pub use message::WebsocketEvent;
 
 use tokio::sync::broadcast;
-use bitcoin::Script;
+use bitcoin::ScriptBuf;
 
 
 #[derive(Clone)]
@@ -71,12 +71,12 @@ impl Client {
         self.manager.subscribe_to_messages()
     }
 
-    pub fn track_scriptpubkeys(&self, scriptpubkeys: &[Script]) {
+    pub fn track_scriptpubkeys(&self, scriptpubkeys: &[ScriptBuf]) {
         log::trace!("socket track_scriptpubkeys");
         self.manager.track_scriptpubkeys(scriptpubkeys.to_vec());
     }
 
-    pub fn untrack_scriptpubkeys(&self, scriptpubkeys: &[Script]) {
+    pub fn untrack_scriptpubkeys(&self, scriptpubkeys: &[ScriptBuf]) {
         log::trace!("socket untrack_scriptpubkeys");
         self.manager.untrack_scriptpubkeys(scriptpubkeys.to_vec());
     }

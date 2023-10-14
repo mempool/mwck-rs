@@ -12,7 +12,7 @@ use std::time::Duration;
 use tokio::sync::{broadcast, RwLock};
 use futures_util::StreamExt;
 use serde::Deserialize;
-use esplora_client::{Script, Tx};
+use esplora_client::{ScriptBuf, Tx};
 
 #[derive(Debug, Clone)]
 pub enum WebsocketEvent {
@@ -26,7 +26,7 @@ pub enum WebsocketEvent {
 #[derive(Deserialize)]
 struct WebsocketResponse {
     #[serde(rename = "multi-scriptpubkey-transactions")]
-    multi_scriptpubkey_transactions: Option<HashMap<Script, WebsocketAddressTransactions>>,
+    multi_scriptpubkey_transactions: Option<HashMap<ScriptBuf, WebsocketAddressTransactions>>,
 }
 
 #[derive(Deserialize)]
@@ -113,7 +113,7 @@ impl Manager {
         }
     }
 
-    fn notify_spk_transactions(&self, spk_transactions: &HashMap<Script, WebsocketAddressTransactions>) {
+    fn notify_spk_transactions(&self, spk_transactions: &HashMap<ScriptBuf, WebsocketAddressTransactions>) {
         for (scriptpubkey, txs) in spk_transactions {
             self.notify_transations_for_spk(
                 AddressEvent::Removed,
@@ -135,8 +135,8 @@ impl Manager {
 
     fn notify_transations_for_spk(
         &self,
-        event: impl Fn(Script, Tx) -> AddressEvent,
-        scriptpubkey: &Script,
+        event: impl Fn(ScriptBuf, Tx) -> AddressEvent,
+        scriptpubkey: &ScriptBuf,
         txs: &[Tx],
     ) {
         for tx in txs {
