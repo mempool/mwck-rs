@@ -33,7 +33,6 @@ impl JsWallet {
             network,
             wallet: Arc::new(Mutex::new(Wallet::new(&Options {
                 hostname: host,
-                network,
                 secure: false,
             }).unwrap()))
         }

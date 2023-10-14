@@ -6,7 +6,7 @@ use esplora_client::{AsyncClient as EsploraClient, Builder, Error, Tx};
 
 #[derive(Debug, Clone)]
 pub struct Client {
-    client: EsploraClient,
+    pub client: EsploraClient,
 }
 
 impl Client {

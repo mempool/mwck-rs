@@ -6,3 +6,5 @@ mod api;
 mod socket;
 mod compat;
 pub mod wallet;
+pub mod async_client;
+pub use async_client::MempoolAsync;

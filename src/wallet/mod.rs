@@ -13,7 +13,6 @@ use address::{State, Tracker};
 
 pub struct Options {
     pub hostname: String,
-    pub network: Network,
     pub secure: bool,
 }
 
@@ -44,7 +43,7 @@ impl std::fmt::Display for Event {
 
 #[derive(Clone)]
 pub struct Wallet {
-    api: api::Client,
+    pub api: api::Client,
     ws: socket::Client,
     addresses: Arc<Mutex<HashMap<ScriptBuf, Arc<Mutex<Tracker>>>>>,
     event_sender: broadcast::Sender<Event>,
