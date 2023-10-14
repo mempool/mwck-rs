@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::wallet::{Wallet, Options};
+use crate::wallet::{Wallet, Options, Error as MwckError};
 use bitcoin::{Txid, Transaction, BlockHash, Block, MerkleBlock, ScriptBuf};
 use esplora_client::{Error, TxStatus, BlockStatus, MerkleProof, OutputStatus, Tx, BlockSummary};
 use reqwest;

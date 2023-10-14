@@ -2,10 +2,11 @@ use crate::api;
 use crate::socket::{self, WebsocketEvent};
 use crate::compat;
 use bitcoin::ScriptBuf;
-pub use esplora_client::Error;
+pub use esplora_client;
 use tokio::sync::{broadcast, Mutex};
 
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::sync::Arc;
 
 pub mod address;
@@ -15,6 +16,34 @@ pub struct Options {
     pub hostname: String,
     pub secure: bool,
 }
+
+#[derive(Debug)]
+pub enum Error {
+    EsploraError(esplora_client::Error),
+    Missing,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+macro_rules! impl_error {
+    ( $from:ty, $to:ident ) => {
+        impl_error!($from, $to, Error);
+    };
+    ( $from:ty, $to:ident, $impl_for:ty ) => {
+        impl std::convert::From<$from> for $impl_for {
+            fn from(err: $from) -> Self {
+                <$impl_for>::$to(err)
+            }
+        }
+    };
+}
+
+impl std::error::Error for Error {}
+impl_error!(esplora_client::Error, EsploraError, Error);
 
 #[derive(Debug, Clone)]
 pub enum Event {
