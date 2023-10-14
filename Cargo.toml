@@ -24,7 +24,7 @@ reqwest = { version = "0.11", default-features = false, features = ["json"] }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger = "0.10.0"
 tokio = { version = "1.20.1", features = ["rt-multi-thread", "time", "macros", "sync", "signal"] }
-tokio-tungstenite = "0.20.1"
+tokio-tungstenite = { version = "0.20.1", features = ["native-tls"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-logger = "0.2.0"
