@@ -3,7 +3,7 @@ name = "mwck"
 version = "0.1.0"
 edition = "2021"
 authors = ["mononaut"]
-license = "GNU Affero General Public License v3.0"
+license = "AGPL-3.0-or-later"
 description = "mempool.space wallet connector kit"
 keywords = ["bitcoin", "mempool"]
 
