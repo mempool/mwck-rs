@@ -115,17 +115,17 @@ impl Manager {
 
     fn notify_spk_transactions(&self, spk_transactions: &HashMap<ScriptBuf, WebsocketAddressTransactions>) {
         for (scriptpubkey, txs) in spk_transactions {
-            self.notify_transations_for_spk(
+            self.notify_transactions_for_spk(
                 AddressEvent::Removed,
                 scriptpubkey,
                 &txs.removed,
             );
-            self.notify_transations_for_spk(
+            self.notify_transactions_for_spk(
                 AddressEvent::Mempool,
                 scriptpubkey,
                 &txs.mempool,
             );
-            self.notify_transations_for_spk(
+            self.notify_transactions_for_spk(
                 AddressEvent::Confirmed,
                 scriptpubkey,
                 &txs.confirmed,
@@ -133,7 +133,7 @@ impl Manager {
         }
     }
 
-    fn notify_transations_for_spk(
+    fn notify_transactions_for_spk(
         &self,
         event: impl Fn(ScriptBuf, Tx) -> AddressEvent,
         scriptpubkey: &ScriptBuf,
