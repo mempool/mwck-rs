@@ -28,18 +28,25 @@ impl Client {
     ) -> Result<Vec<Tx>, Error> {
         let script_hash = sha256::Hash::hash(script.as_bytes());
         let max_txs = page_size.unwrap_or(50);
-        let url = last_seen.map_or_else(|| format!(
-                "{}/scripthash/{:x}/txs?max_txs={}",
-                self.client.url(),
-                script_hash,
-                max_txs
-            ), |after_txid| format!(
-                "{}/scripthash/{:x}/txs?max_txs={}&after_txid={}",
-                self.client.url(),
-                script_hash,
-                max_txs,
-                after_txid
-            ));
+        let url = last_seen.map_or_else(
+            || {
+                format!(
+                    "{}/scripthash/{:x}/txs?max_txs={}",
+                    self.client.url(),
+                    script_hash,
+                    max_txs
+                )
+            },
+            |after_txid| {
+                format!(
+                    "{}/scripthash/{:x}/txs?max_txs={}&after_txid={}",
+                    self.client.url(),
+                    script_hash,
+                    max_txs,
+                    after_txid
+                )
+            },
+        );
         Ok(self
             .client
             .client()

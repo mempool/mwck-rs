@@ -8,7 +8,7 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 pub type Sink = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 pub type Stream = SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>;
-pub use tokio_tungstenite::tungstenite::{Message, Error as StreamError};
+pub use tokio_tungstenite::tungstenite::{Error as StreamError, Message};
 
 #[derive(Debug)]
 pub enum Error {

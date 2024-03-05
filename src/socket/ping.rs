@@ -2,8 +2,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{broadcast, RwLock};
 
-use crate::compat;
 use super::Event;
+use crate::compat;
 
 pub struct Manager {
     control_sender: broadcast::Sender<Event>,
@@ -20,12 +20,12 @@ impl Manager {
         Self {
             control_sender,
             disconnect_channel,
-            last_response
+            last_response,
         }
     }
 
     pub async fn start(&mut self, id: u32) {
-    log::trace!("starting ping loop {}", id);
+        log::trace!("starting ping loop {}", id);
         {
             *self.last_response.write().await = compat::now();
         }
@@ -43,11 +43,18 @@ impl Manager {
                     log::trace!("DISCONNECT ping websocket is unresponsive, closing the connection and trying again in 60s {}", id);
                     let _ = self.disconnect_channel.send(true);
                     break;
-                } else if !waiting_for_pong && now.saturating_sub(*last_response_time) > Duration::from_secs(30) {
-                    log::trace!("no response from websocket for 30 seconds - request a ping {}", id);
+                } else if !waiting_for_pong
+                    && now.saturating_sub(*last_response_time) > Duration::from_secs(30)
+                {
+                    log::trace!(
+                        "no response from websocket for 30 seconds - request a ping {}",
+                        id
+                    );
                     let _ = self.control_sender.send(Event::Ping);
                     waiting_for_pong = true;
-                } else if waiting_for_pong && now.saturating_sub(*last_response_time) <= Duration::from_secs(30) {
+                } else if waiting_for_pong
+                    && now.saturating_sub(*last_response_time) <= Duration::from_secs(30)
+                {
                     // recent response
                     waiting_for_pong = false;
                 }

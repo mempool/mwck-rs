@@ -165,24 +165,30 @@ impl Tracker {
         match event {
             Event::Mempool(_, tx) => {
                 self.add_transaction(&tx);
-                let _ = self.event_sender.send(WalletEvent::AddressEvent(Event::Mempool(
-                    self.scriptpubkey.clone(),
-                    tx.clone(),
-                )));
+                let _ = self
+                    .event_sender
+                    .send(WalletEvent::AddressEvent(Event::Mempool(
+                        self.scriptpubkey.clone(),
+                        tx.clone(),
+                    )));
             }
             Event::Confirmed(_, tx) => {
                 self.add_transaction(&tx);
-                let _ = self.event_sender.send(WalletEvent::AddressEvent(Event::Confirmed(
-                    self.scriptpubkey.clone(),
-                    tx.clone(),
-                )));
+                let _ = self
+                    .event_sender
+                    .send(WalletEvent::AddressEvent(Event::Confirmed(
+                        self.scriptpubkey.clone(),
+                        tx.clone(),
+                    )));
             }
             Event::Removed(_, tx) => {
                 self.remove_transaction(&tx.txid);
-                let _ = self.event_sender.send(WalletEvent::AddressEvent(Event::Confirmed(
-                    self.scriptpubkey.clone(),
-                    tx.clone(),
-                )));
+                let _ = self
+                    .event_sender
+                    .send(WalletEvent::AddressEvent(Event::Confirmed(
+                        self.scriptpubkey.clone(),
+                        tx.clone(),
+                    )));
             }
         }
     }

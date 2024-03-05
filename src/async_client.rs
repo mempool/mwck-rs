@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use crate::wallet::{Wallet, Options, Error as MwckError};
-use bitcoin::{Txid, Transaction, BlockHash, Block, MerkleBlock, ScriptBuf};
-use esplora_client::{Error, TxStatus, BlockStatus, MerkleProof, OutputStatus, Tx, BlockSummary};
-use reqwest;
+use crate::wallet::{Error as MwckError, Options, Wallet};
+use bitcoin::{Block, BlockHash, MerkleBlock, ScriptBuf, Transaction, Txid};
 use delegate::delegate;
+use esplora_client::{BlockStatus, BlockSummary, Error, MerkleProof, OutputStatus, Tx, TxStatus};
+use reqwest;
 
 pub struct MempoolAsync {
     wallet: Wallet,
@@ -15,9 +15,7 @@ impl MempoolAsync {
     #[must_use]
     pub fn new(options: &Options) -> Self {
         let wallet = Wallet::new(options).unwrap();
-        Self {
-            wallet,
-        }
+        Self { wallet }
     }
 
     #[must_use]
@@ -30,18 +28,24 @@ impl MempoolAsync {
         self.wallet.connect(wait_for_connection).await
     }
 
-    pub async fn mwck_scripthash_txs(
-        &self,
-        script: &ScriptBuf,
-    ) -> Result<Vec<Tx>, MwckError> {
-        self.wallet.get_and_watch(script).await.map(|state| state.transactions)
+    pub async fn mwck_scripthash_txs(&self, script: &ScriptBuf) -> Result<Vec<Tx>, MwckError> {
+        self.wallet
+            .get_and_watch(script)
+            .await
+            .map(|state| state.transactions)
     }
 
     pub async fn mwck_confirmed_scripthash_txs(
         &self,
         script: &ScriptBuf,
     ) -> Result<Vec<Tx>, MwckError> {
-        self.wallet.get_and_watch(script).await.map(|state| state.transactions.into_iter().filter(|tx| tx.status.confirmed).collect())
+        self.wallet.get_and_watch(script).await.map(|state| {
+            state
+                .transactions
+                .into_iter()
+                .filter(|tx| tx.status.confirmed)
+                .collect()
+        })
     }
 
     delegate! {
@@ -123,7 +127,7 @@ impl MempoolAsync {
 
 fn url_to_options(input: &str) -> Result<Options, &'static str> {
     let mut iter = input.splitn(3, "://");
-    
+
     let Some(scheme) = iter.next() else {
         return Err("Invalid URL");
     };

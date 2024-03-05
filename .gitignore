@@ -3,3 +3,6 @@
 **/pkg
 **/.DS_Store
 .vscode
+
+# gnostr
+.gnostr

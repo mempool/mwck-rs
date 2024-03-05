@@ -1,6 +1,6 @@
 use crate::api;
-use crate::socket::{self, WebsocketEvent};
 use crate::compat;
+use crate::socket::{self, WebsocketEvent};
 use bitcoin::ScriptBuf;
 pub use esplora_client;
 use tokio::sync::{broadcast, Mutex};
@@ -93,16 +93,12 @@ impl Wallet {
 
         let (event_sender, _) = broadcast::channel::<Event>(256);
 
-        api::Client::new(&api_url).map(|api| {
-            Self {
-                api,
-                ws: socket::Client::new(ws_url),
-                addresses: Arc::new(Mutex::new(HashMap::new())),
-                event_sender,
-            }
+        api::Client::new(&api_url).map(|api| Self {
+            api,
+            ws: socket::Client::new(ws_url),
+            addresses: Arc::new(Mutex::new(HashMap::new())),
+            event_sender,
         })
-
-        
     }
 
     pub async fn connect(&self, wait_for_connection: bool) {
@@ -169,13 +165,10 @@ impl Wallet {
                 let tracker = tracker_arc.lock().await;
                 Ok(tracker.get_state())
             }
-            None => {
-                self.watch(&[scriptpubkey.clone()]).await.and_then(|vec| {
-                    vec.first()
-                        .cloned()
-                        .ok_or(Error::Missing)
-                })
-            }
+            None => self
+                .watch(&[scriptpubkey.clone()])
+                .await
+                .and_then(|vec| vec.first().cloned().ok_or(Error::Missing)),
         }
     }
 
@@ -205,7 +198,14 @@ impl Wallet {
         let mut results = Vec::with_capacity(scriptpubkeys.len());
 
         for spk in scriptpubkeys {
-            results.push(addresses.get(spk).expect("spk should exist in addresses, since we just inserted it").lock().await.get_state());
+            results.push(
+                addresses
+                    .get(spk)
+                    .expect("spk should exist in addresses, since we just inserted it")
+                    .lock()
+                    .await
+                    .get_state(),
+            );
         }
 
         Ok(results)
@@ -296,11 +296,10 @@ impl Wallet {
             !tx.status.confirmed || last_height.is_none() || tx.status.block_height > last_height
         }) {
             if !fetched_txids.contains(&tx.txid) {
-                tracker
-                    .process_event(
-                        address::Event::Removed(scriptpubkey.clone(), tx.clone()),
-                        false,
-                    );
+                tracker.process_event(
+                    address::Event::Removed(scriptpubkey.clone(), tx.clone()),
+                    false,
+                );
             }
         }
 
@@ -308,23 +307,23 @@ impl Wallet {
 
         for tx in &initial_transactions {
             if tx.status.confirmed {
-                tracker
-                    .process_event(
-                        address::Event::Confirmed(scriptpubkey.clone(), tx.clone()),
-                        false,
-                    );
+                tracker.process_event(
+                    address::Event::Confirmed(scriptpubkey.clone(), tx.clone()),
+                    false,
+                );
             } else {
-                tracker
-                    .process_event(
-                        address::Event::Mempool(scriptpubkey.clone(), tx.clone()),
-                        false,
-                    );
+                tracker.process_event(
+                    address::Event::Mempool(scriptpubkey.clone(), tx.clone()),
+                    false,
+                );
             }
         }
 
         tracker.set_loading(false);
 
-        let _ = self.event_sender.send(Event::AddressReady(scriptpubkey.clone()));
+        let _ = self
+            .event_sender
+            .send(Event::AddressReady(scriptpubkey.clone()));
 
         Ok(tracker.get_state())
     }

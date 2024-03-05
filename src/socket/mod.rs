@@ -14,9 +14,8 @@ use connection::Status;
 use control::Event;
 pub use message::WebsocketEvent;
 
-use tokio::sync::broadcast;
 use bitcoin::ScriptBuf;
-
+use tokio::sync::broadcast;
 
 #[derive(Clone)]
 pub struct Client {

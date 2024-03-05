@@ -6,13 +6,13 @@ use super::native::{Message, Stream};
 #[cfg(target_arch = "wasm32")]
 use super::wasm::{Message, Stream, StreamError};
 
+use esplora_client::{ScriptBuf, Tx};
+use futures_util::StreamExt;
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{broadcast, RwLock};
-use futures_util::StreamExt;
-use serde::Deserialize;
-use esplora_client::{ScriptBuf, Tx};
 
 #[derive(Debug, Clone)]
 pub enum WebsocketEvent {
@@ -54,7 +54,7 @@ impl Manager {
             ws_rx,
             event_sender,
             disconnect_channel,
-            last_response
+            last_response,
         }
     }
 
@@ -99,7 +99,7 @@ impl Manager {
 
     fn handle_event(&self, json_message: &str) {
         let response: Result<WebsocketResponse, serde_json::Error> =
-        serde_json::from_str(json_message);
+            serde_json::from_str(json_message);
         match response {
             Ok(message) => {
                 if let Some(payload) = message.multi_scriptpubkey_transactions {
@@ -113,23 +113,14 @@ impl Manager {
         }
     }
 
-    fn notify_spk_transactions(&self, spk_transactions: &HashMap<ScriptBuf, WebsocketAddressTransactions>) {
+    fn notify_spk_transactions(
+        &self,
+        spk_transactions: &HashMap<ScriptBuf, WebsocketAddressTransactions>,
+    ) {
         for (scriptpubkey, txs) in spk_transactions {
-            self.notify_transations_for_spk(
-                AddressEvent::Removed,
-                scriptpubkey,
-                &txs.removed,
-            );
-            self.notify_transations_for_spk(
-                AddressEvent::Mempool,
-                scriptpubkey,
-                &txs.mempool,
-            );
-            self.notify_transations_for_spk(
-                AddressEvent::Confirmed,
-                scriptpubkey,
-                &txs.confirmed,
-            );
+            self.notify_transations_for_spk(AddressEvent::Removed, scriptpubkey, &txs.removed);
+            self.notify_transations_for_spk(AddressEvent::Mempool, scriptpubkey, &txs.mempool);
+            self.notify_transations_for_spk(AddressEvent::Confirmed, scriptpubkey, &txs.confirmed);
         }
     }
 

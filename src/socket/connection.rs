@@ -1,10 +1,10 @@
-use std::sync::Arc;
-#[cfg(not(target_arch = "wasm32"))]
-use std::time::Duration;
 #[cfg(not(target_arch = "wasm32"))]
 use super::native::connect;
 #[cfg(target_arch = "wasm32")]
 use super::wasm::connect;
+use std::sync::Arc;
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::Duration;
 
 use bitcoin::ScriptBuf;
 use tokio::sync::{broadcast, oneshot, RwLock};
@@ -50,9 +50,7 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub fn new(
-        ws_url: String,
-    ) -> Self {
+    pub fn new(ws_url: String) -> Self {
         // TODO: replace these broadcast channels with intermediated watch channels?
         let (status_sender, _) = broadcast::channel(1);
         let (event_sender, _) = broadcast::channel(256);
@@ -109,7 +107,7 @@ impl Manager {
                         }
                     }
                     log::trace!("joined loop threads");
-                    break
+                    break;
                 }
                 // Ready => Connecting
                 Status::Ready => {
@@ -120,7 +118,10 @@ impl Manager {
                 Status::Connecting => {
                     log::trace!("trying to connect");
                     // need fresh channels for signalling socket closure/disconnection
-                    if let Some((h, c, d)) = self.connect(self.event_sender.clone(), connection_count).await {
+                    if let Some((h, c, d)) = self
+                        .connect(self.event_sender.clone(), connection_count)
+                        .await
+                    {
                         handles = Some(h);
                         close_receiver = Some(c);
                         disconnect_channel = Some(d);
@@ -132,7 +133,7 @@ impl Manager {
                         status.update(Status::Disconnected);
                     }
                     connection_count += 1;
-                },
+                }
                 // Disconnected => Ready (delayed to rate-limit reconnections)
                 Status::Disconnected => {
                     log::trace!("waiting for threads to exit");
@@ -158,7 +159,7 @@ impl Manager {
                             log::trace!("event or control thread exited");
                             status.update(Status::Disconnected);
                         }
-                        
+
                         // Connected => Offline
                         close_event = &mut close_signal => {
                             match close_event {
@@ -197,7 +198,15 @@ impl Manager {
         log::trace!("returning from connection::stop");
     }
 
-    async fn connect(&mut self, event_sender: broadcast::Sender<WebsocketEvent>, id: u32) -> Option<(Vec<Option<JoinHandle<()>>>, oneshot::Receiver<bool>, broadcast::Sender<bool>)> {
+    async fn connect(
+        &mut self,
+        event_sender: broadcast::Sender<WebsocketEvent>,
+        id: u32,
+    ) -> Option<(
+        Vec<Option<JoinHandle<()>>>,
+        oneshot::Receiver<bool>,
+        broadcast::Sender<bool>,
+    )> {
         log::trace!("Connecting to {}", self.ws_url);
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -221,7 +230,7 @@ impl Manager {
                         ws_tx,
                         control_receiver,
                         control_disconnect,
-                        Some(close_sender)
+                        Some(close_sender),
                     );
                     manager.start(id).await;
                     log::trace!("closed control manager");
@@ -241,11 +250,8 @@ impl Manager {
                 let ping_controller = self.control_sender.clone();
                 let ping_disconnect = disconnect_sender.clone();
                 let ping_handle = compat::spawn(async move {
-                    let mut manager = ping::Manager::new(
-                        ping_controller,
-                        ping_disconnect,
-                        last_response,
-                    );
+                    let mut manager =
+                        ping::Manager::new(ping_controller, ping_disconnect, last_response);
                     manager.start(id).await;
                     log::trace!("closed ping manager");
                 });

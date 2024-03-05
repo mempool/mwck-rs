@@ -3,11 +3,11 @@ use super::native::{Message, Sink, StreamError};
 #[cfg(target_arch = "wasm32")]
 use super::wasm::{Message, Sink, StreamError};
 
-use std::collections::HashSet;
-use tokio::sync::{oneshot, broadcast};
+use esplora_client::ScriptBuf;
 use futures_util::SinkExt;
 use serde::Serialize;
-use esplora_client::ScriptBuf;
+use std::collections::HashSet;
+use tokio::sync::{broadcast, oneshot};
 
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -27,7 +27,7 @@ pub struct Manager {
     ws_tx: Sink,
     control_receiver: broadcast::Receiver<Event>,
     disconnect_channel: broadcast::Sender<bool>,
-    close_channel: Option<oneshot::Sender<bool>>
+    close_channel: Option<oneshot::Sender<bool>>,
 }
 
 impl Manager {
@@ -35,7 +35,7 @@ impl Manager {
         ws_tx: Sink,
         control_receiver: broadcast::Receiver<Event>,
         disconnect_channel: broadcast::Sender<bool>,
-        close_channel: Option<oneshot::Sender<bool>>
+        close_channel: Option<oneshot::Sender<bool>>,
     ) -> Self {
         Self {
             ws_tx,
@@ -46,10 +46,7 @@ impl Manager {
     }
 
     /// Handles control signals from an mpsc channel
-    pub async fn start(
-        &mut self,
-        id: u32,
-    ) {
+    pub async fn start(&mut self, id: u32) {
         log::trace!("starting control loop {}", id);
         let mut active_spks = HashSet::new();
         let mut disconnect_receiver = self.disconnect_channel.subscribe();

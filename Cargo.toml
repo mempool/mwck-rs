@@ -1,11 +1,11 @@
 [package]
-name = "mwck"
-version = "0.1.0"
+name = "mempool_space"
+version = "0.0.1"
 edition = "2021"
-authors = ["mononaut"]
+authors = ["mononaut", "@randymcmilla <randy.lee.mcmillan@gmail.com>"]
 license = "AGPL-3.0-or-later"
-description = "mempool.space wallet connector kit"
-keywords = ["bitcoin", "mempool"]
+description = "mempool.space command line utility"
+keywords = ["bitcoin", "mempool", "mempool-space"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -20,6 +20,8 @@ esplora-client = { version = "0.6", features = ["async"], default-features = fal
 wasm-bindgen-futures = "0.4.37"
 delegate = "0.10.0"
 reqwest = { version = "0.11", default-features = false, features = ["json"] }
+regex = "1.10.3"
+secp256k1 = { version = "0.28.2", features = ["hashes", "rand-std", "global-context"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger = "0.10.0"
