@@ -82,7 +82,7 @@ jobs:
 
       ## objective: test cmake build gnostr with gnostr-nip
       - run: V=1 make cargo-br || true
-        if: github.event_name == 'pull_request'
+      # if: github.event_name == 'pull_request'
 
       - run: V=1 make cargo-i || true
         if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && matrix.os == 'ubuntu-matrix'
