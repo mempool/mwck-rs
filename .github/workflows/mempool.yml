@@ -1,0 +1,99 @@
+name: mempool.yml
+
+# Controls when the action will run.
+on:
+  pull_request:
+    branches:
+      - '*'
+      - '*/*'
+      - '**'
+      - 'master'
+      - 'main'
+  push:
+    branches:
+      - '*'
+      - '*/*'
+      - '**'
+      - 'master'
+      - 'main'
+
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  build:
+    env:
+      MEMPOOL: "mempool"
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: echo test
+        #if: ${{ !env.ACT }}
+        run: |
+          echo MEMPOOL=${{ env.MEMPOOL }}
+          echo MEMPOOL_SPACE=${{ env.MEMPOOL_SPACE }}
+        env:
+          MEMPOOL_SPACE: "MEMPOOL_SPACE"
+      - uses: styfle/cancel-workflow-action@0.11.0
+        if: ${{ !env.ACT }}
+        with:
+          access_token: ${{ github.token }}
+      - name: Restore deps
+        id: cache-deps-restore
+        uses: actions/cache/restore@v3
+        if: ${{ !env.ACT }}
+        with:
+          path: |
+            ~/.cargo
+            ~/.rustup
+          key: ${{ runner.os }}-deps
+
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+          set-safe-directory: 'true'
+          fetch-depth: '0'
+
+      - uses: actions-rs/toolchain@v1.0.6
+        #if: ${{ !env.ACT }}
+        with:
+          toolchain: stable
+          default: true
+          override: true
+
+      ## objective: streamline gnostr installation on macos/brewlinux
+      - run: brew tap gnostr-org/homebrew-gnostr-org || true
+        if: github.event_name == 'pull_request' && matrix.os == 'macos-latest'
+
+      ## objective: streamline gnostr installation on macos/brewlinux
+      - run: brew tap nostorg/nostr || true
+        if: github.event_name == 'pull_request' && matrix.os == 'macos-latest'
+
+      - run: rustup default stable
+      - run: cargo search gnostr --limit 100
+      - run: mkdir -p ~/bin
+
+      ## objective: ensure make detect installs all needed depends/libs/etc
+      ## make detect is first for brew install sequence OR sudo make detect for apt install
+      - run: make detect || sudo make detect
+      - run: python3 -m pip install virtualenv
+
+      ## objective: test cmake build gnostr with gnostr-nip
+      - run: V=1 make cargo-br || true
+        if: github.event_name == 'pull_request'
+
+      - run: V=1 make cargo-i || true
+        if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && matrix.os == 'ubuntu-matrix'
+
+      - name: Save deps
+        id: cache-deps-save
+        uses: actions/cache/save@v3
+        if: ${{ !env.ACT }}
+        with:
+          path: |
+            ~/.cargo
+            ~/.rustup
+          key: ${{ steps.cache-deps-restore.outputs.cache-primary-key }}
+

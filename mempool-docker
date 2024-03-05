@@ -1,0 +1,292 @@
+#!/usr/bin/env bash
+DOCKERFILE="\
+FROM rust:latest as base
+LABEL org.opencontainers.image.source=\"https://github.com/bitcoincore-dev/mempool_space\"
+LABEL org.opencontainers.image.description=\"mempool-space\"
+RUN touch updated
+RUN echo \$(date +%s) > updated
+RUN apt-get update
+RUN apt-get install -y bash cmake git libssl-dev make tcl-dev
+RUN git clone --branch master --depth 1 https://github.com/bitcoincore-dev/mempool_space.git
+WORKDIR /tmp
+RUN git clone --recurse-submodules -j4 --branch master --depth 10 https://github.com/bitcoincore-dev/mempool_space.git
+WORKDIR /tmp/mempool
+RUN make detect
+FROM base as mempool
+RUN make cargo-i
+ENV SUDO=sudo
+RUN cargo install gnostr-bins --force
+RUN install ./serve /usr/local/bin || true
+ENV PATH=\$PATH:/usr/bin/systemctl
+RUN ps -p 1 -o comm=
+EXPOSE 80 6102 8080 \${PORT}
+VOLUME /src
+FROM mempool as mempool-docker
+"
+echo -e "$DOCKERFILE" > Dockerfile
+
+[[ -z "$(command -v mempool-docker)" ]] && \
+        install $0 /usr/local/bin || true
+
+ARCH=${ARCH:-$(uname -m)}
+if [[ "$ARCH" == "x86_64" ]];
+then
+  TARGET=amd64
+fi
+if [[ "$ARCH" == "arm64" ]];
+then
+  TARGET=arm64
+fi
+PORT=${PORT:-8080}
+VERBOSE=${VERBOSE:-	}
+
+FORCE=${FORCE:-	}
+NOCACHE=${NOCACHE:-	} ## default rebuild without --no-cache
+TAG=${TAG:-mempool}
+
+PYTHON3=$(which python3)
+
+if [[ "$CI" == "" ]];
+then
+    if [[ "$(uname -s)" == "Darwin"  ]];
+    then
+        DOCKER=${DOCKER:-"/Applications/Docker.app/Contents/MacOS/Docker"}
+    fi
+    if [[ "$(uname -s)" == "Linux"  ]];
+    then
+        echo "TODO:more Linux support"
+        DOCKER=docker
+        DOCKER=${DOCKER:-docker}
+    fi
+fi
+#[[ -z "$DOCKER" ]] && echo "-z $DOCKER" && DOCKER=${DOCKER:docker}
+#[[ ! -z "$DOCKER" ]] && echo "! -z $DOCKER" && DOCKER=${DOCKER:docker}
+#echo $DOCKER;
+
+function docker-start(){
+
+	( \
+	    while ! docker system info > /dev/null 2>&1; do\
+	    echo 'Waiting for docker to start...';\
+        ## echo $DOCKER
+	    if [[ "$(uname -s)" == "Linux" ]]; then\
+	     systemctl restart docker.service;\
+	    fi;\
+	    if [[ "$(uname -s)" == "Darwin" ]]; then\
+            DOCKER="/Applications/Docker.app/Contents/MacOS/Docker";\
+            open --background -a $DOCKER || DOCKER=$(which docker);\
+	    fi;\
+	sleep 1;\
+	done\
+	)
+
+}
+
+function help {
+
+##echo -e ""$DOCKERFILE""
+
+    printf "Usage:\n"
+    printf "\n"
+    printf "  gnost-docker\n"
+    printf "\n"
+    printf "  gnost-docker [-df]\n"
+    printf "\n"
+    printf "  gnost-docker examples\n"
+    printf "\n"
+    printf "  gnost-docker help  [-h --help]\n"
+    printf "\n"
+    printf "  gnost-docker build [-b --build]\n"
+    printf "\n"
+    printf "  ARCH=$ARCH \\ \n"
+    printf "  gnost-docker buildx [-bx --buildx]\n"
+    printf "\n"
+    printf "  gnost-docker shell\n"
+    printf "\n"
+    printf "  PORT=6102 gnost-docker serve\n"
+    printf "\n"
+    printf "  gnost-docker run '<command>'"
+    printf "\n"
+    exit;
+}
+
+function build(){
+
+    #echo $DOCKER
+    #echo $NOCACHE
+    [ "$NOCACHE" ]      && docker build --no-cache -t $TAG . && exit;
+    [ ! -z "$NOCACHE" ] && docker build $NOCACHE   -t $TAG . && exit;
+
+}
+function buildx(){
+
+    #echo $DOCKER
+    #echo $NOCACHE
+    docker run --privileged --rm tonistiigi/binfmt --install all
+	  docker buildx ls
+	  docker buildx create --use --name mempool-buildx || true
+	  docker buildx build -t $TAG --platform linux/arm64,linux/amd64 .
+	  docker buildx build -t $TAG --platform linux/$TARGET . --load
+
+}
+
+function run(){
+
+    echo 0=$0 1=$1 $2 $3 $4 $5 $6 $7 $8
+    docker-start
+
+    docker   \
+        run  \
+        --rm \
+        -v `pwd`:/src \
+        $TAG \
+        bash \
+        -c "$1 $2 $3 $4 $5 $6 $7 $8";
+
+exit
+}
+function serve(){
+    echo serve
+    echo $PORT
+
+    docker-start
+
+    docker  \
+        run \
+        -d  \
+        -t  \
+        -i  \
+        -p 127.0.0.1:8080:$PORT/tcp \
+        -v `pwd`:/src $TAG bash -c "serve $PORT"
+    exit
+
+}
+function shell (){
+
+    echo 0=$0 1=$1 $2 $3 $4 $5 $6 $7 $8
+    docker-start
+    docker \
+        run \
+        -t \
+        -i \
+        --rm \
+        -p 127.0.0.1:0:8080/tcp \
+        -v `pwd`:/src $TAG bash  #". ~/.cargo/env "
+
+}
+
+## argparse
+## position $1
+## echo "\${!#}=${!#}"
+while test $# -gt 0
+do
+    echo 0=$0 1=$1 $2 $3 $4 $5 $6 $7 $8
+    case "$1" in
+      -df) docker-start; echo -e "$DOCKERFILE" > Dockerfile
+            ;;
+        start) docker-start; exit
+            ;;
+        verbose) VERBOSE=1; echo $VERBOSE
+            ;;
+        --verbose) VERBOSE=1; echo $VERBOSE
+            ;;
+        -v) VERBOSE=1; echo $VERBOSE
+            ;;
+        help) help;
+            ;;
+        --help) help;
+            ;;
+        -h) help;
+            ;;
+        --force) FORCE=--force; ## echo FORCE=$FORCE
+            ;;
+        -f)      FORCE=--force; ## echo FORCE=$FORCE
+            ;;
+        build) build
+            ;;
+        --build) build
+            ;;
+        -b) build
+            ;;
+         b) build
+            ;;
+        buildx) buildx
+            ;;
+        --buildx) buildx
+            ;;
+        -bx) buildx
+            ;;
+         bx) buildx
+            ;;
+        run) RUN=TRUE && run $2 $3 $4 $5 $6  $7 $8
+            ;;
+        --make) make
+            ;;
+        -m) make
+            ;;
+        run) RUN=TRUE && run $2 $3 $4
+            ;;
+        serve) serve $PORT
+            ;;
+        shell) shell
+            ;;
+        examples) examples
+            ;;
+        --examples) examples
+            ;;
+        -e) examples
+            ;;
+        --*) echo "bad option $1"
+            ;;
+        *) echo "argument $1"
+            ;;
+    esac
+    shift
+done
+## position $2
+while test $# -gt 1
+do
+    echo 0=$0 1=$1 $2 $3 $4 $5 $6 $7 $8
+    case "$2" in
+        ## support mempool-docker build -f
+        ##         mempool-docker -f build
+        start) docker-start; exit
+            ;;
+        verbose) VERBOSE=1; echo $VERBOSE
+            ;;
+        --verbose) VERBOSE=1; echo $VERBOSE
+            ;;
+        -v) VERBOSE=1; echo $VERBOSE
+            ;;
+        --force) FORCE=--force; ## echo FORCE=$FORCE
+            ;;
+        -f) FORCE=--force;      ## echo FORCE=$FORCE
+            ;;
+        build) build
+            ;;
+        --build) build
+            ;;
+        -b) build
+            ;;
+        buildx) buildx
+            ;;
+        --buildx) buildx
+            ;;
+        -bx) buildx
+            ;;
+         bx) buildx
+            ;;
+        examples) examples
+            ;;
+        --examples) examples
+            ;;
+        -e) examaples
+            ;;
+        --*) echo "bad option $1"
+            ;;
+        *) echo "argument $1"
+            ;;
+    esac
+    shift
+done
+help
